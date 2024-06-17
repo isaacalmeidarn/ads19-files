@@ -2,67 +2,10 @@
 
 CONTAINERD_VERSION="1.6.20-1"
 DOCKER_VERSION="5:23.0.5-1~debian.$(cat /etc/debian_version | cut -d'.' -f1)~$(lsb_release -cs)"
-K8S_VERSION="1.27.1-00"
+K8S_VERSION="1.27.12-1.1"
 
 MYIFACE="eth1"
 MYIP="$( ip -4 addr show ${MYIFACE} | grep -oP '(?<=inet\s)\d+(\.\d+){3}' )"
-
-PLABS_PROXY="192.168.255.13"
-PLABS_PORT="8080"
-
-
-# # #
-
-
-setproxy() {
-cat << EOF > /etc/profile.d/proxy.sh
-export http_proxy="http://${PLABS_PROXY}:${PLABS_PORT}/"
-export HTTP_PROXY="http://${PLABS_PROXY}:${PLABS_PORT}/"
-export https_proxy="http://${PLABS_PROXY}:${PLABS_PORT}/"
-export HTTPS_PROXY="http://${PLABS_PROXY}:${PLABS_PORT}/"
-export ftp_proxy="http://${PLABS_PROXY}:${PLABS_PORT}/"
-export FTP_PROXY="http://${PLABS_PROXY}:${PLABS_PORT}/"
-export no_proxy="127.0.0.1,localhost,192.168.68.20,192.168.68.25"
-export NO_PROXY="127.0.0.1,localhost,192.168.68.20,192.168.68.25"
-EOF
-chmod +x /etc/profile.d/proxy.sh
-
-cat << EOF > ~/.wgetrc
-use_proxy = on
-http_proxy = http://${PLABS_PROXY}:${PLABS_PORT}/
-https_proxy = http://${PLABS_PROXY}:${PLABS_PORT}/
-ftp_proxy = http://${PLABS_PROXY}:${PLABS_PORT}/
-EOF
-
-cat << EOF > /etc/apt/apt.conf.d/99proxy
-Acquire::http::proxy "http://${PLABS_PROXY}:${PLABS_PORT}/";
-Acquire::https::proxy "http://${PLABS_PROXY}:${PLABS_PORT}/";
-Acquire::ftp::proxy "ftp://${PLABS_PROXY}:${PLABS_PORT}/";
-EOF
-
-mkdir -p /root/.docker
-cat << EOF > /root/.docker/config.json
-{
- "proxies": {
-   "default":   {
-     "httpProxy": "http://${PLABS_PROXY}:${PLABS_PORT}/",
-     "httpsProxy": "http://${PLABS_PROXY}:${PLABS_PORT}/",
-     "ftpProxy": "http://${PLABS_PROXY}:${PLABS_PORT}/",
-     "noProxy": "localhost,127.0.0.0/8,192.168.68.0/24"
-   }
- }
-}
-EOF
-}
-
-
-# # #
-
-
-# Configure proxy if running on PracticeLabs
-if nc -w3 -z ${PLABS_PROXY} ${PLABS_PORT}; then
-  setproxy
-fi
 
 # Basic package installation
 apt update
@@ -159,8 +102,8 @@ swapoff -a
 sed -i 's/^\(.*vg-swap.*\)/#\1/' /etc/fstab
 
 # Install kubeadm and friends
-curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-archive-keyring.gpg
-echo "deb [signed-by=/etc/apt/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.27/deb/Release.key | sudo gpg --dearmor -o /usr/share/keyrings/kubernetes-apt-keyring.gpg
+echo 'deb [signed-by=/usr/share/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.27/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
 apt update
 apt install -y kubelet=${K8S_VERSION} \
                kubeadm=${K8S_VERSION} \
